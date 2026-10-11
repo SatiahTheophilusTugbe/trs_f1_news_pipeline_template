@@ -74,7 +74,7 @@ body{margin:0;padding:0;background:#0a0a0a}
 .cov-inner{position:relative;z-index:5;flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 56px 170px}
 .cov-inner.centered{justify-content:center;padding-bottom:0}
 .cov-sec{font-size:24px;letter-spacing:8px;color:#AAFF00;text-transform:uppercase;margin-bottom:16px;font-weight:700;font-family:'Inter',sans-serif}
-.cov-ttl{font-family:'Bebas Neue',sans-serif;font-size:100px;line-height:0.94;color:#fff;letter-spacing:1px;text-transform:uppercase;max-width:940px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.cov-ttl{font-family:'Bebas Neue',sans-serif;font-size:100px;line-height:0.94;color:#fff;letter-spacing:1px;text-transform:uppercase;max-width:940px}
 
 /* ============ S2: THE NUMBERS (consolidated, persistent backdrop) ============ */
 .scrim-numbers{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg, rgba(10,10,10,0.28) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.88) 100%)}
@@ -87,7 +87,7 @@ body{margin:0;padding:0;background:#0a0a0a}
 .fact-num.hero{color:#AAFF00;font-size:140px}
 .fact-text{flex:1}
 .fact-label{font-size:22px;letter-spacing:3px;color:#AAFF00;text-transform:uppercase;font-weight:600;margin-bottom:10px;font-family:'Inter',sans-serif}
-.fact-body{font-size:48px;color:#fff;line-height:1.18;font-weight:500;font-family:'Inter',sans-serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fact-body{font-size:48px;color:#fff;line-height:1.18;font-weight:500;font-family:'Inter',sans-serif}
 .fact-row.hidden{display:none}
 
 /* ============ S3: THE FRICTION (complicating angle, persistent backdrop) ============ */
@@ -121,7 +121,7 @@ body{margin:0;padding:0;background:#0a0a0a}
 /* task 16 (2026-10-11): FIXED number column so every row's text column starts at the same x (a long figure like
    "10+ PLACES" used to grow min-width:250px and push its row right); longer figures shrink to fit. Fix round 1: 300px,
    because the widest realistic figure measured 297px in headless Chrome and the 48px body needs the width. */
-.fact-num{flex:0 0 300px;width:300px;min-width:0;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.fact-num{flex:0 0 300px;width:300px;min-width:0;white-space:nowrap;font-variant-numeric:tabular-nums}
 .fact-num.num-m{font-size:84px}
 .fact-num.num-s{font-size:64px;letter-spacing:-1px}
 .fact-num.hero.num-m{font-size:100px}
@@ -140,8 +140,12 @@ body{margin:0;padding:0;background:#0a0a0a}
 .num-content.facts-3 .fact-body{font-size:40px}
 .num-content.facts-3 .receipts{margin-top:18px;padding-top:12px}
 .fact-label{display:inline-block;padding-bottom:6px;border-bottom:3px solid {{TEAM_ACCENT}}}
-.receipts{margin-top:26px;padding-top:16px;border-top:1px solid rgba(170,255,0,0.25);font-size:19px;letter-spacing:2px;color:rgba(255,255,255,0.8);text-transform:uppercase;font-weight:600;font-family:'Inter',sans-serif;line-height:1.5;text-shadow:0 1px 3px rgba(0,0,0,0.9);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.receipts{margin-top:26px;padding-top:16px;border-top:1px solid rgba(170,255,0,0.25);font-size:19px;letter-spacing:2px;color:rgba(255,255,255,0.8);text-transform:uppercase;font-weight:600;font-family:'Inter',sans-serif;line-height:1.5;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
 .receipts:empty{display:none}
+/* task 17 (owner, 2026-10-11): a sharp sub-hook under the cover headline. Inter under the Bebas title, same text-shadow
+   halo as the cover; hidden when empty. Works for the bottom-anchored photo cover and the centered no-photo cover. */
+.cov-sub{font-family:'Inter',sans-serif;font-size:44px;font-weight:500;line-height:1.25;color:rgba(255,255,255,0.92);margin-top:22px;max-width:940px;text-shadow:0 2px 14px rgba(0,0,0,0.55),0 1px 3px rgba(0,0,0,0.9)}
+.cov-sub:empty{display:none}
 </style>
 </head>
 <body>
@@ -164,6 +168,7 @@ body{margin:0;padding:0;background:#0a0a0a}
   <div class="vbar"></div>
   <div class="cov-sec">{{COV_KICKER}}</div>
   <div class="cov-ttl">{{HEADLINE}}</div>
+  <div class="cov-sub">{{SUB_HOOK}}</div>
 </div>
 <div class="ch-label">01 &middot; THE STORY</div>
 <div class="chr-bc">SPORT. DECODED.</div>
@@ -230,5 +235,54 @@ body{margin:0;padding:0;background:#0a0a0a}
 </div>
 
 </div>
+<script>
+/* TRS FIT-TO-BOX (task 17, 2026-10-11): no clamp, no ellipsis. Text that would overflow steps down 1px at a time.
+   Slide 2: each figure wider than its 300px column (min 40px); then while .num-content rises above y=190 or
+   reaches the chapter label: fact bodies (min 30px), then the receipts strip (min 15px).
+   Slide 1: while the cover block rises above y=150 or reaches the chapter label: the title (min 64px), then the
+   sub-hook (min 32px). Any error leaves the page as rendered. */
+(function () {
+  function px(el) { return parseFloat(getComputedStyle(el).fontSize); }
+  function down(els, min) {
+    var moved = false;
+    for (var i = 0; i < els.length; i++) { var f = px(els[i]); if (f > min) { els[i].style.fontSize = Math.max(min, f - 1) + 'px'; moved = true; } }
+    return moved;
+  }
+  function textW(el) { var r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; }
+  function fit() {
+    try {
+      var R = document.getElementById('slide-render'), s = R && R.querySelector('.slide.active');
+      if (!s) return;
+      var sized = s.querySelectorAll('.cov-ttl,.cov-sub,.fact-num,.fact-body,.receipts'), i, g;
+      for (i = 0; i < sized.length; i++) sized[i].style.fontSize = '';
+      var top0 = R.getBoundingClientRect().top, lab = s.querySelector('.ch-label');
+      var labTop = lab ? lab.getBoundingClientRect().top - top0 : R.offsetHeight;
+      var c = s.querySelector('.num-content');
+      if (c) {
+        var nums = s.querySelectorAll('.fact-row:not(.hidden) .fact-num');
+        for (i = 0; i < nums.length; i++) { g = 0; while (textW(nums[i]) > nums[i].clientWidth + 0.5 && g++ < 200 && down([nums[i]], 40)) {} }
+        var bodies = s.querySelectorAll('.fact-row:not(.hidden) .fact-body'), rc = s.querySelectorAll('.receipts');
+        var over2 = function () { var r = c.getBoundingClientRect(); return r.top - top0 < 190 || r.bottom - top0 > labTop; };
+        g = 0; while (over2() && g++ < 100 && (down(bodies, 30) || down(rc, 15))) {}
+      }
+      var ci = s.querySelector('.cov-inner');
+      if (ci && ci.firstElementChild) {
+        var ttl = s.querySelectorAll('.cov-ttl'), sub = s.querySelectorAll('.cov-sub');
+        var over1 = function () {
+          var t = ci.firstElementChild.getBoundingClientRect().top - top0, b = 0;
+          for (var k = 0; k < ci.children.length; k++) if (ci.children[k].offsetHeight) b = Math.max(b, ci.children[k].getBoundingClientRect().bottom - top0);
+          return t < 150 || b > labTop;
+        };
+        g = 0; while (over1() && g++ < 100 && (down(ttl, 64) || down(sub, 32))) {}
+      }
+    } catch (e) {}
+  }
+  function go() {
+    try { void document.body.offsetHeight; (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(fit, fit); } catch (e) {}
+  }
+  go();
+  window.addEventListener('load', go);
+})();
+</script>
 </body>
 </html>

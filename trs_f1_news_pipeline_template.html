@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+TRS F1 NEWS TEMPLATE v1 (from news v5, 2026-10-10) -- F1 skin: race label, team-colour accent bar
+(colour only, never logos), slot kicker, receipts strip on The Numbers
+Repo: trs_templates/news (create + push). Render loop cache-busts with Date.now().
+
+FIXED 4 slides: The Story (photo hero), The Numbers (all facts, one hero stat
+highlighted in volt-green), The Friction (the complicating angle that raises
+the stakes before the verdict), The Take (closing verdict + so_line + platform
+row -- the closer). The same photo bleeds through all four slides with
+increasing scrim depth so the carousel reads as one continuous backdrop, not
+four disconnected cards. No dedicated brand-only sign-off slide -- every slide
+already carries "THIRD RAIL SPORTS" in the persistent header chrome, so a
+giant ghost-watermark outro slide was redundant branding on top of branding
+that's already there.
+No-photo fallback: all four slides share the same dark diagonal gradient +
+faint "NEWS" ghost watermark instead of a flat black scrim.
+
+DOCTRINE: facts/headline/hook/friction/verdict come from Tavily-grounded
+research; Claude supplies editorial copy only, no invented stats.
+
+RENDER NOTE: any slide with a photo needs ms_delay >= 2000 in the HCTI call --
+confirmed 700ms can silently drop a slow-loading hotlinked image with no error.
+-->
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{margin:0;padding:0;background:#0a0a0a}
+
+#slide-render{
+  width:1080px;
+  height:1080px;
+  position:relative;
+  overflow:hidden;
+  background:#0a0a0a;
+  font-family:'Inter',sans-serif;
+}
+
+.grain{position:absolute;inset:0;z-index:50;pointer-events:none;opacity:0.5;mix-blend-mode:overlay}
+.slide{position:absolute;inset:0;display:none;flex-direction:column}
+.slide.active{display:flex}
+
+/* ============ GLOBAL CHROME (shared brand system) ============ */
+.chr-tl{position:absolute;top:34px;left:44px;z-index:20;font-family:'Bebas Neue',sans-serif;font-size:27px;letter-spacing:7px;color:#AAFF00;line-height:1}
+.chr-tr{position:absolute;top:39px;right:44px;z-index:20;font-size:17px;letter-spacing:4px;color:rgba(170,255,0,0.55);text-transform:uppercase;font-weight:600;font-family:'Inter',sans-serif}
+.chr-bc{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);z-index:20;font-size:16px;letter-spacing:8px;color:rgba(170,255,0,0.35);text-transform:uppercase;font-weight:600;font-family:'Inter',sans-serif}
+.ch-label{position:absolute;bottom:32px;left:44px;z-index:20;font-size:16px;letter-spacing:4px;color:rgba(170,255,0,0.65);text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif}
+.sc{position:absolute;bottom:26px;right:44px;font-family:'Bebas Neue',sans-serif;font-size:40px;color:rgba(170,255,0,0.18);letter-spacing:4px;z-index:20;line-height:1}
+/* 4-segment rail -- matches the fixed 4-slide count, not the old 10-dot bar */
+.rail{position:absolute;left:0;top:0;bottom:0;width:6px;display:flex;flex-direction:column;gap:5px;z-index:30}
+.rs{flex:1;background:#191919}
+.rs.on{background:#AAFF00}
+
+.bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 20%;z-index:1}
+.bg-dark{position:absolute;inset:0;z-index:1;background:linear-gradient(160deg,#101010 0%,#0a0a0a 60%)}
+.ds-ghost{position:absolute;z-index:3;font-family:'Bebas Neue',sans-serif;font-size:340px;line-height:1;color:#AAFF00;opacity:0.045;right:0;bottom:-20px;letter-spacing:-10px;pointer-events:none;padding:0 16px 16px 0;white-space:nowrap}
+
+.vbar{width:110px;height:12px;background:#AAFF00;margin:0 0 26px;transform:skewX(-16deg)}
+
+/* Inline volt-green keyword/phrase highlight inside a headline-style title (cov-ttl/fric-ttl/take-ttl) */
+.acc{color:#AAFF00}
+
+/* Text-shadow "halo" on all primary content text sitting over a photo backdrop -- a fixed-opacity
+   scrim can't guarantee contrast against every possible photo (bright sky, light jersey, stadium
+   lights right behind the text), so every glyph gets its own dark edge as a content-agnostic backstop. */
+.cov-sec,.cov-ttl,.num-sec,.fact-num,.fact-label,.fact-body,.fric-sec,.fric-ttl,.fric-bod,.take-sec,.take-ttl,.take-bod,.take-so{text-shadow:0 2px 14px rgba(0,0,0,0.55),0 1px 3px rgba(0,0,0,0.9)}
+
+/* ============ S1: THE STORY (hero) ============ */
+.scrim-hero{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg, rgba(10,10,10,0.02) 0%, rgba(10,10,10,0.06) 46%, rgba(10,10,10,0.5) 66%, rgba(10,10,10,0.97) 88%)}
+.cov-inner{position:relative;z-index:5;flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 56px 170px}
+.cov-inner.centered{justify-content:center;padding-bottom:0}
+.cov-sec{font-size:24px;letter-spacing:8px;color:#AAFF00;text-transform:uppercase;margin-bottom:16px;font-weight:700;font-family:'Inter',sans-serif}
+.cov-ttl{font-family:'Bebas Neue',sans-serif;font-size:100px;line-height:0.94;color:#fff;letter-spacing:1px;text-transform:uppercase;max-width:940px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ============ S2: THE NUMBERS (consolidated, persistent backdrop) ============ */
+.scrim-numbers{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg, rgba(10,10,10,0.28) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.88) 100%)}
+.num-content{position:relative;z-index:5;flex:none;margin:auto 40px 92px;display:flex;flex-direction:column;justify-content:flex-start;padding:38px 44px 40px}
+.num-sec{font-size:24px;letter-spacing:8px;color:#AAFF00;text-transform:uppercase;font-weight:700;font-family:'Inter',sans-serif;margin-bottom:10px}
+.fact-list{flex:none;display:flex;flex-direction:column}
+.fact-row{display:flex;align-items:center;gap:34px;border-top:1px solid rgba(255,255,255,0.1);padding-top:22px;margin-top:22px}
+.fact-row.first{border-top:none;padding-top:0;margin-top:0}
+.fact-num{font-family:'Bebas Neue',sans-serif;font-size:108px;line-height:0.85;color:#fff;letter-spacing:-2px;min-width:250px}
+.fact-num.hero{color:#AAFF00;font-size:140px}
+.fact-text{flex:1}
+.fact-label{font-size:22px;letter-spacing:3px;color:#AAFF00;text-transform:uppercase;font-weight:600;margin-bottom:10px;font-family:'Inter',sans-serif}
+.fact-body{font-size:48px;color:#fff;line-height:1.18;font-weight:500;font-family:'Inter',sans-serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fact-row.hidden{display:none}
+
+/* ============ S3: THE FRICTION (complicating angle, persistent backdrop) ============ */
+.scrim-friction{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg, rgba(10,10,10,0.28) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.88) 100%)}
+.fric-inner{position:relative;z-index:5;flex:none;margin:auto 40px 92px;display:flex;flex-direction:column;padding:40px 44px 46px;justify-content:flex-start}
+.fric-sec{font-size:24px;letter-spacing:8px;color:#AAFF00;text-transform:uppercase;margin-bottom:20px;font-weight:700;font-family:'Inter',sans-serif}
+.fric-ttl{font-family:'Bebas Neue',sans-serif;font-size:92px;line-height:0.94;color:#fff;letter-spacing:1px;margin-bottom:24px}
+.fric-bod{font-size:48px;color:#fff;line-height:1.18;font-weight:500;font-family:'Inter',sans-serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ============ S4: THE TAKE (closer -- verdict + so_line + platform row, persistent backdrop) ============ */
+.scrim-take{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg, rgba(10,10,10,0.28) 0%, rgba(10,10,10,0.6) 40%, rgba(10,10,10,0.88) 100%)}
+.take-inner{position:relative;z-index:5;flex:none;margin:auto 40px 124px;display:flex;flex-direction:column;padding:40px 44px 42px;justify-content:flex-start}
+.take-sec{font-size:24px;letter-spacing:8px;color:#AAFF00;text-transform:uppercase;margin-bottom:20px;font-weight:700;font-family:'Inter',sans-serif}
+.take-ttl{font-family:'Bebas Neue',sans-serif;font-size:88px;line-height:0.94;color:#fff;letter-spacing:1px;margin-bottom:22px}
+.take-bod{font-size:48px;color:#fff;line-height:1.18;font-weight:500;font-family:'Inter',sans-serif;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.take-so{font-size:40px;color:#fff;line-height:1.4;font-weight:300;font-style:italic;font-family:'Inter',sans-serif;margin-top:26px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.12);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ============ S2-S4 SHARED (v5, 2026-10-08) ============
+   Slides 2-4 share one overlay (lighter than v4, still well below the S1 hero brightness). The text block
+   sits low on the slide over a feathered dark panel: it fades in from transparent above the text, so no hard
+   edge ever cuts across the photo. All supporting lines (fact-body/fric-bod/take-bod) share one 48px size. */
+.num-content::before,.fric-inner::before,.take-inner::before{content:'';position:absolute;left:-40px;right:-40px;top:-150px;bottom:-200px;z-index:-1;background:linear-gradient(180deg,rgba(8,8,8,0) 0px,rgba(8,8,8,0.62) 170px,rgba(8,8,8,0.72) 100%)}
+.fric-inner .vbar,.take-inner .vbar{margin-bottom:22px}
+
+/* Footer platform row -- truly centered in the same footer band as ch-label/sc on every other slide.
+   Rule stretches edge-to-edge (matching chr-tl/chr-tr's 44px margin) with clear gap above the footer text. */
+.platform-rule{position:absolute;bottom:92px;left:44px;right:44px;height:2px;background:rgba(255,255,255,0.08);z-index:20}
+.platform-row{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font-family:'Bebas Neue',sans-serif;font-size:30px;color:rgba(170,255,0,0.55);letter-spacing:6px;text-align:center;white-space:nowrap;z-index:20}
+/* ============ F1 SKIN (v1, 2026-10-10) ============ */
+.team-bar{position:absolute;right:0;top:0;bottom:0;width:6px;background:{{TEAM_ACCENT}};z-index:30}
+.fact-num{font-variant-numeric:tabular-nums}
+.fact-label{display:inline-block;padding-bottom:6px;border-bottom:3px solid {{TEAM_ACCENT}}}
+.receipts{margin-top:26px;padding-top:16px;border-top:1px solid rgba(170,255,0,0.25);font-size:19px;letter-spacing:2px;color:rgba(255,255,255,0.8);text-transform:uppercase;font-weight:600;font-family:'Inter',sans-serif;line-height:1.5;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
+</style>
+</head>
+<body>
+<div id="slide-render">
+
+<svg class="grain" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+<filter id="gf"><feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" stitchTiles="stitch"/>
+<feColorMatrix type="saturate" values="0"/><feBlend in="SourceGraphic" mode="overlay"/></filter>
+<rect width="100%" height="100%" filter="url(#gf)" opacity="0.38"/>
+</svg>
+
+<!-- S1: THE STORY -->
+<div class="slide {{S1_ACTIVE}}" id="s1">
+{{S1_BG_HTML}}
+<div class="team-bar"></div>
+<div class="rail"><div class="rs on"></div><div class="rs"></div><div class="rs"></div><div class="rs"></div></div>
+<div class="chr-tl">THIRD RAIL SPORTS</div>
+<div class="chr-tr">{{RACE_LABEL}} &middot; {{DATE_LABEL}}</div>
+<div class="cov-inner {{COV_INNER_CLASS}}">
+  <div class="vbar"></div>
+  <div class="cov-sec">{{COV_KICKER}}</div>
+  <div class="cov-ttl">{{HEADLINE}}</div>
+</div>
+<div class="ch-label">01 &middot; THE STORY</div>
+<div class="chr-bc">SPORT. DECODED.</div>
+<div class="sc">01 / 04</div>
+</div>
+
+<!-- S2: THE NUMBERS -->
+<div class="slide {{S2_ACTIVE}}" id="s2">
+{{S2_BG_HTML}}
+<div class="team-bar"></div>
+<div class="rail"><div class="rs on"></div><div class="rs on"></div><div class="rs"></div><div class="rs"></div></div>
+<div class="chr-tl">THIRD RAIL SPORTS</div>
+<div class="chr-tr">{{RACE_LABEL}} &middot; {{DATE_LABEL}}</div>
+<div class="num-content">
+  <div class="num-sec">The Numbers</div>
+  <div class="fact-list {{FACT_LIST_CLASS}}">
+  <div class="fact-row first"><div class="fact-num {{FACT1_HERO_CLASS}}">{{FACT1_NUM}}</div><div class="fact-text"><div class="fact-label">{{FACT1_LABEL}}</div><div class="fact-body">{{FACT1_BODY}}</div></div></div>
+  <div class="fact-row {{FACT2_HIDDEN_CLASS}}"><div class="fact-num {{FACT2_HERO_CLASS}}">{{FACT2_NUM}}</div><div class="fact-text"><div class="fact-label">{{FACT2_LABEL}}</div><div class="fact-body">{{FACT2_BODY}}</div></div></div>
+  <div class="fact-row {{FACT3_HIDDEN_CLASS}}"><div class="fact-num {{FACT3_HERO_CLASS}}">{{FACT3_NUM}}</div><div class="fact-text"><div class="fact-label">{{FACT3_LABEL}}</div><div class="fact-body">{{FACT3_BODY}}</div></div></div>
+  </div>
+  <div class="receipts">{{RECEIPTS_HTML}}</div>
+</div>
+<div class="ch-label">02 &middot; THE NUMBERS</div>
+<div class="chr-bc">SPORT. DECODED.</div>
+<div class="sc">02 / 04</div>
+</div>
+
+<!-- S3: THE FRICTION -->
+<div class="slide {{S3_ACTIVE}}" id="s3">
+{{S3_BG_HTML}}
+<div class="team-bar"></div>
+<div class="rail"><div class="rs on"></div><div class="rs on"></div><div class="rs on"></div><div class="rs"></div></div>
+<div class="chr-tl">THIRD RAIL SPORTS</div>
+<div class="chr-tr">{{RACE_LABEL}} &middot; {{DATE_LABEL}}</div>
+<div class="fric-inner">
+  <div class="vbar"></div>
+  <div class="fric-sec">The Friction</div>
+  <div class="fric-ttl">{{FRICTION_LINE}}</div>
+  <div class="fric-bod">{{FRICTION_SUPPORT}}</div>
+</div>
+<div class="ch-label">03 &middot; THE FRICTION</div>
+<div class="chr-bc">SPORT. DECODED.</div>
+<div class="sc">03 / 04</div>
+</div>
+
+<!-- S4: THE TAKE (closer) -->
+<div class="slide {{S4_ACTIVE}}" id="s4">
+{{S4_BG_HTML}}
+<div class="team-bar"></div>
+<div class="rail"><div class="rs on"></div><div class="rs on"></div><div class="rs on"></div><div class="rs on"></div></div>
+<div class="chr-tl">THIRD RAIL SPORTS</div>
+<div class="chr-tr">{{RACE_LABEL}} &middot; {{DATE_LABEL}}</div>
+<div class="take-inner">
+  <div class="vbar"></div>
+  <div class="take-sec">The Take</div>
+  <div class="take-ttl">{{VERDICT_LINE}}</div>
+  <div class="take-bod">{{VERDICT_SUPPORT}}</div>
+  <div class="take-so">{{SO_LINE}}</div>
+</div>
+<div class="ch-label">04 &middot; THE VERDICT</div>
+<div class="platform-rule"></div>
+<div class="platform-row">IG &middot; FB &middot; TIKTOK &middot; X &middot; THREADS</div>
+<div class="sc">04 / 04</div>
+</div>
+
+</div>
+</body>
+</html>

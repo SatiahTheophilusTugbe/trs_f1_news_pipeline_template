@@ -3,7 +3,7 @@
 <!--
 TRS F1 NEWS TEMPLATE v1 (from news v5, 2026-10-10) -- F1 skin: race label, team-colour accent bar
 (colour only, never logos), slot kicker, receipts strip on The Numbers
-Repo: trs_templates/news (create + push). Render loop cache-busts with Date.now().
+Repo: SatiahTheophilusTugbe/trs_f1_news_pipeline_template. Render loop cache-busts with Date.now().
 
 FIXED 4 slides: The Story (photo hero), The Numbers (all facts, one hero stat
 highlighted in volt-green), The Friction (the complicating angle that raises
@@ -120,7 +120,8 @@ body{margin:0;padding:0;background:#0a0a0a}
 .team-bar{position:absolute;right:0;top:0;bottom:0;width:6px;background:{{TEAM_ACCENT}};z-index:30}
 .fact-num{font-variant-numeric:tabular-nums}
 .fact-label{display:inline-block;padding-bottom:6px;border-bottom:3px solid {{TEAM_ACCENT}}}
-.receipts{margin-top:26px;padding-top:16px;border-top:1px solid rgba(170,255,0,0.25);font-size:19px;letter-spacing:2px;color:rgba(255,255,255,0.8);text-transform:uppercase;font-weight:600;font-family:'Inter',sans-serif;line-height:1.5;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
+.receipts{margin-top:26px;padding-top:16px;border-top:1px solid rgba(170,255,0,0.25);font-size:19px;letter-spacing:2px;color:rgba(255,255,255,0.8);text-transform:uppercase;font-weight:600;font-family:'Inter',sans-serif;line-height:1.5;text-shadow:0 1px 3px rgba(0,0,0,0.9);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.receipts:empty{display:none}
 </style>
 </head>
 <body>
